@@ -9,7 +9,7 @@ from torch import eye, ones, zeros
 from torch.distributions import MultivariateNormal
 
 from sbi.diagnostics import sbc_checks, sbc_in_batches
-from sbi.inference import SNPE_C, simulate_for_sbi
+from sbi.inference import SNLE, SNPE_C, simulate_for_sbi
 from sbi.simulators import linear_gaussian
 
 
@@ -17,7 +17,7 @@ from sbi.simulators import linear_gaussian
 @pytest.mark.parametrize(
     "method, model",
     [
-        (SNPE_C, "mdn"),
+        (SNLE, "mdn"),
     ],
 )
 def test_running_sbc(method, model):
@@ -44,9 +44,11 @@ def test_running_sbc(method, model):
     _ = inferer.append_simulations(theta, x).train(
         training_batch_size=100, max_num_epochs=max_num_epochs
     )
-    posterior = inferer.build_posterior().set_default_x(x_o)
+    posterior = inferer.build_posterior(
+        mcmc_method="slice_np_vectorized"
+    ).set_default_x(x_o)
 
-    sbc_in_batches(prior, simulator, posterior)
+    sbc_in_batches(prior, simulator, posterior, num_workers=10, sbc_batch_size=10)
 
 
 def test_sbc_checks():
