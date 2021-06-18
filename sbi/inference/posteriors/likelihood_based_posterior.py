@@ -440,6 +440,8 @@ class PotentialFunctionProvider:
         likelihood_nn: nn.Module,
         x: Tensor,
         method: str,
+        transforms,
+        l_lower_bound: float = 1e-7,
     ) -> Callable:
         r"""Return potential function for posterior $p(\theta|x)$.
 
@@ -459,6 +461,8 @@ class PotentialFunctionProvider:
         self.prior = prior
         self.device = next(likelihood_nn.parameters()).device
         self.x = atleast_2d(x).to(self.device)
+        self.transforms = transforms
+        self.l_lower_bound = l_lower_bound
 
         if method == "slice":
             return partial(self.pyro_potential, track_gradients=False)
@@ -471,17 +475,26 @@ class PotentialFunctionProvider:
         else:
             NotImplementedError
 
-    def log_likelihood(self, theta: Tensor, track_gradients: bool = False) -> Tensor:
+    def log_likelihood(
+        self, theta_transformed: Tensor, track_gradients: bool = False
+    ) -> Tensor:
         """Return log likelihood of fixed data given a batch of parameters."""
+
+        theta = self.transforms.inv(theta_transformed)
+        ladj = self.transforms.log_abs_det_jacobian(theta, theta_transformed)
+        # Without transforms, logabsdet returns second dimension.
+        if ladj.ndim > 1:
+            ladj = ladj.sum(-1)
 
         log_likelihoods = LikelihoodBasedPosterior._log_likelihoods_over_trials(
             x=self.x,
             theta=ensure_theta_batched(theta).to(self.device),
             net=self.likelihood_nn,
             track_gradients=track_gradients,
+            ll_lower_bound=np.log(self.l_lower_bound),
         )
 
-        return log_likelihoods
+        return log_likelihoods - ladj
 
     def posterior_potential(
         self, theta: np.array, track_gradients: bool = False
