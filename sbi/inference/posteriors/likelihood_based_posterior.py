@@ -7,6 +7,7 @@ from warnings import warn
 
 import numpy as np
 import torch
+from pyro.distributions.transforms import identity_transform
 from torch import Tensor, nn
 
 from sbi.inference.posteriors.base_posterior import NeuralPosterior
@@ -440,7 +441,7 @@ class PotentialFunctionProvider:
         likelihood_nn: nn.Module,
         x: Tensor,
         method: str,
-        transforms,
+        transforms=None,
         l_lower_bound: float = 1e-7,
     ) -> Callable:
         r"""Return potential function for posterior $p(\theta|x)$.
@@ -461,7 +462,7 @@ class PotentialFunctionProvider:
         self.prior = prior
         self.device = next(likelihood_nn.parameters()).device
         self.x = atleast_2d(x).to(self.device)
-        self.transforms = transforms
+        self.transforms = identity_transform if transforms is None else transforms
         self.l_lower_bound = l_lower_bound
 
         if method == "slice":
