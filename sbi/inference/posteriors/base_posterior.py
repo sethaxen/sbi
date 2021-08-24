@@ -911,6 +911,9 @@ class NeuralPosterior(ABC):
                 x.shape == self.default_x.shape
             ), f"""The shape of the passed `x` {x.shape} and must match the shape of `x`
             used during training, {self.default_x.shape}."""
+        # If there is no default_x we still have ensure the correct shape.
+        else:
+            process_x(x, self._x_shape, allow_iid_x=self._allow_iid_x)
 
     @staticmethod
     def _ensure_single_x(x: Tensor) -> None:
